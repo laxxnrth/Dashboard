@@ -1,0 +1,914 @@
+---
+title: "Les femmes dans l'audiovisuel français"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    theme: readable
+    container: fluid
+runtime: shiny
+---
+
+```{r setup, include=FALSE, cache=TRUE}
+library(flexdashboard) 
+library(ggplot2)
+library(kableExtra)
+library(dplyr)
+library(patchwork)
+library(plotly)
+library(lubridate)
+library(tidyr)
+
+theme_set(theme_minimal())
+
+high <- "#003f5e"
+low <- "#00225e"
+bleu2 <- "#B3D1E6"
+bleu3 <- "#A9C9FF"
+bleu1 <- "#CCDFF1"
+
+genre_prog <- read.csv("C:/Users/laxmi/Desktop/DEE/ina-csa-parole-femmes-genreprogramme.csv")
+
+chaine <- read.csv("C:/Users/laxmi/Desktop/DEE/ina-csa-parole-femmes-chaines.csv")
+
+stats <- read.csv("C:/Users/laxmi/Desktop/DEE/20190308-stats.csv")
+
+stats <- stats %>% mutate(media_type = case_when(media_type == "radio" ~ "Radio",
+                                                 media_type == "tv" ~ "Télévision"))
+
+stats <- stats %>%
+  mutate(
+    category = case_when(
+      media_type == "Radio" & channel_name %in% c("France Info", "Europe 1", "RFI", "RTL", "Sud Radio", "RMC") ~ "Info",
+      media_type == "Radio" & channel_name %in% c("NRJ", "Skyrock", "Virgin Radio", "Rire et Chansons", "Nostalgie") ~ "Divertissement",
+      media_type == "Radio" & channel_name %in% c("Radio Classique", "France Musique", "Chérie FM") ~ "Musique",
+      
+      media_type == "Télévision" & channel_name %in% c("BFM TV", "CNews", "France 24", "LCI") ~ "Info",
+      media_type == "Télévision" & channel_name %in% c("Eurosport France", "Canal+ Sport", "L'Équipe 21") ~ "Sport",
+      media_type == "Télévision" & channel_name %in% c("M6", "TF1", "Comédie+", "TMC") ~ "Divertissement",
+      media_type == "Télévision" & channel_name %in% c("Arte", "Planète+", "Toute l'Histoire", "Histoire") ~ "Culture",
+      
+      TRUE ~ "Autres"
+    )
+  )
+
+stats <- stats %>%
+  mutate(year = year(date))
+
+moy_f <- read.csv("20190308-years.csv")
+
+moy_f <- moy_f %>% mutate(description = case_when(
+  channel_name == "Chérie FM" ~ "Chérie FM a été créée en 1987. Elle est toujours active aujourd'hui et est connue pour diffuser une sélection de musique douce et variée, notamment des chansons d'amour et de la pop. Elle est assez connue en France, surtout pour ses playlists romantiques.",
+  channel_name == "Europe 1" ~ "Europe 1 a vu le jour en 1955 et est encore active. C'est une station généraliste qui propose des émissions d'actualités, des débats, ainsi que du divertissement. Europe 1 est très connue et a une grande place dans le paysage médiatique français.",
+  channel_name == "France Bleu" ~ "Lancée en 2000, France Bleu est une station de radio généraliste régionale qui est encore active. Elle se concentre principalement sur les informations locales et la musique. Très populaire au niveau local, France Bleu est bien connue à travers la France pour son lien avec les régions.",
+  channel_name == "France Culture" ~ "Créée en 1963, France Culture est toujours en activité. Elle est dédiée aux contenus culturels, incluant des débats, des documentaires et des émissions sur l'art et les sciences. France Culture est particulièrement appréciée dans les cercles intellectuels et parmi les auditeurs intéressés par la réflexion et l'analyse.",
+  channel_name == "France Info" ~ "France Info a été fondée en 1987 et reste l'une des radios d'information en continu les plus écoutées. Elle diffuse des actualités en temps réel, 24h sur 24. France Info est très connue en France pour sa couverture rapide et constante de l'actualité.",
+  channel_name == "France Inter" ~ "France Inter existe depuis 1947 et est toujours active. Il s'agit d'une station de radio généraliste qui propose une large gamme de programmes allant de l'actualité aux émissions culturelles, en passant par des programmes de divertissement. France Inter est très populaire et largement écoutée en France.",
+  channel_name == "France Musique" ~ "Créée en 1954, France Musique est une station de radio dédiée à la musique classique et au jazz. Elle est encore active et est bien connue des amateurs de musique classique et de jazz en France.",
+  channel_name == "Fun Radio" ~ "Fun Radio a vu le jour en 1985 et diffuse toujours. Elle est spécialisée dans la musique électronique et dance, avec une programmation orientée vers un public jeune. Fun Radio est assez connue, surtout pour ses soirées et événements musicaux.",
+  channel_name == "MOUV" ~ "Créée en 1997 sous le nom Le Mouv', la radio est maintenant simplement appelée Mouv'. Elle est encore active et se concentre sur le hip-hop, le rap, et la culture urbaine, ciblant un public jeune. Elle est bien connue dans les milieux urbains et auprès des amateurs de rap.",
+  channel_name == "NRJ" ~ "Fondée en 1981, NRJ est une des radios les plus populaires en France, avec un format axé sur les hits du moment et la musique pop. Elle est toujours active et très connue pour son slogan 'Hit Music Only'.",
+  channel_name == "Nostalgie" ~ "Créée en 1983, Nostalgie est encore active et diffuse des titres des années 60, 70 et 80, ciblant les amateurs de musique rétro. Elle est bien connue pour sa programmation nostalgique.",
+  channel_name == "RFM" ~ "RFM a été fondée en 1981 et est encore en activité. Elle propose une programmation musicale variée, axée sur les hits des années 80 et 90. RFM est assez connue, en particulier auprès des auditeurs nostalgiques de ces décennies.",
+  channel_name == "RMC" ~ "RMC, ou Radio Monte-Carlo, a été créée en 1943. Toujours active, elle est maintenant orientée vers l'information, les débats, et les sports. Très connue, surtout pour ses programmes sportifs et ses talk-shows.",
+  channel_name == "RTL" ~ "RTL a vu le jour en 1933 sous le nom de Radio Luxembourg. C'est une radio généraliste très connue, proposant de l'actualité, des débats, et du divertissement. Toujours active, elle est l'une des radios les plus populaires en France.",
+  channel_name == "RTL 2" ~ "Créée en 1992 sous le nom de M40, RTL 2 est toujours active. Elle est spécialisée dans la diffusion de 'pop rock' et des titres des années 80 et 90. Elle est bien connue dans son domaine musical.",
+  channel_name == "Radio Classique" ~ "Fondée en 1983, Radio Classique est encore en activité. Comme son nom l'indique, elle est dédiée à la musique classique et à l'actualité culturelle. Elle est bien connue des amateurs de musique classique.",
+  channel_name == "RFI" ~ "RFI a été fondée en 1975 et est encore active. C'est une radio publique française à vocation internationale, diffusant des informations et des programmes culturels dans le monde entier. Très connue à l'international.",
+  channel_name == "Rire et Chansons" ~ "Créée en 1989, Rire et Chansons est toujours active. Elle diffuse des sketches humoristiques et des chansons humoristiques. Elle est assez connue pour son côté divertissant.",
+  channel_name == "Skyrock" ~ "Fondée en 1986, Skyrock est une station de radio encore active, spécialisée dans le rap, le hip-hop et la musique urbaine. Très connue, surtout parmi les jeunes et les amateurs de musique urbaine.",
+  channel_name == "Sud Radio" ~ "Créée en 1958, Sud Radio est toujours active. Elle est généraliste, proposant des émissions d'actualité, des débats et du divertissement. Assez connue, notamment dans le sud de la France.",
+  channel_name == "Virgin Radio" ~ "Virgin Radio a été créée en 2008 (anciennement Europe 2). Elle est encore active et propose une programmation de musique pop et rock, ciblant un public jeune. Elle est bien connue en France.",
+  channel_name == "ARTE" ~ "Créée en 1991, Arte est une chaîne franco-allemande active, axée sur la culture et les documentaires. Elle est très connue pour la qualité de ses programmes intellectuels et artistiques.",
+  channel_name == "Animaux" ~ "Lancée en 1996, la chaîne Animaux est toujours active et se concentre sur les documentaires sur la faune et la nature. Elle est assez spécialisée, mais connue parmi les amateurs de nature.",
+  channel_name == "BFM TV" ~ "Fondée en 2005, BFM TV est une chaîne d'information en continu qui est toujours active et très connue. Elle est l'une des principales chaînes d'info en France.",
+  channel_name == "Canal+" ~ "Canal+ a été fondée en 1984 et est encore active. C'est une chaîne payante bien connue pour ses films, séries et retransmissions sportives exclusives.",
+  channel_name == "Canal+ Sport" ~ "Créée en 1998, Canal+ Sport est toujours active et est spécialisée dans la diffusion d'événements sportifs en direct. Elle est bien connue des amateurs de sport.",
+  channel_name == "Chasse et pêche" ~ "Créée en 1996, Chasse et Pêche est une chaîne spécialisée qui est toujours active. Elle est dédiée aux amateurs de la chasse, de la pêche et de la nature. Bien que moins connue du grand public, elle a une audience fidèle parmi les passionnés de ces activités.",
+  channel_name == "Chérie 25" ~ "Lancée en 2012, Chérie 25 est toujours active et fait partie du groupe NRJ. La chaîne est axée sur une programmation destinée en majorité aux femmes, avec des films, séries et documentaires. Elle est assez connue et accessible via la TNT.",
+  channel_name == "Comédie+" ~ "Fondée en 1997, Comédie+ est toujours active et diffuse des séries comiques, des spectacles d'humour et des émissions humoristiques. Elle est connue pour son contenu orienté vers le divertissement comique.",
+  channel_name == "D8/C8" ~ "Créée en 2005 sous le nom de Direct 8, la chaîne est devenue D8 en 2012, puis C8 en 2016. Toujours active, C8 propose des programmes variés, y compris des talk-shows, des films, des séries et des événements sportifs. Elle est très connue en France.",
+  channel_name == "Euronews" ~ "Fondée en 1993, Euronews est une chaîne d’information internationale multilingue encore active. Elle est largement connue pour sa couverture des actualités européennes et mondiales.",
+  channel_name == "Eurosport France" ~ "Eurosport a été lancée en 1989 et reste l’une des chaînes sportives les plus populaires. Eurosport France est encore active et bien connue pour sa diffusion d'événements sportifs internationaux.",
+  channel_name == "France 2" ~ "Créée en 1964 sous le nom de Antenne 2, la chaîne est devenue France 2 en 1992 et est l’une des principales chaînes publiques françaises. Toujours active, elle propose un large éventail de programmes (actualités, divertissements, séries, films). France 2 est très connue.",
+  channel_name == "France 24" ~ "Lancée en 2006, France 24 est une chaîne d’information internationale encore active. Elle diffuse en plusieurs langues et est connue à l’échelle mondiale pour son traitement des actualités internationales.",
+  channel_name == "France 3" ~ "Fondée en 1972 sous le nom de FR3, elle est devenue France 3 en 1992. C’est une chaîne publique généraliste qui propose des informations nationales et régionales, des séries et des émissions culturelles. Elle est très connue en France et toujours active.",
+  channel_name == "France 5" ~ "Créée en 1994, France 5 est une chaîne publique spécialisée dans les documentaires et les émissions éducatives. Toujours active, elle est très connue pour ses programmes culturels et de découverte.",
+  channel_name == "France O" ~ "Lancée en 2005, France Ô était une chaîne dédiée aux Outre-mer français. La chaîne a malheureusement cessé de diffuser en 2020. Elle était connue pour sa programmation multiculturelle.",
+  channel_name == "Histoire" ~ "Créée en 1997, Histoire TV est une chaîne thématique encore active. Elle se concentre sur les documentaires historiques et est appréciée des passionnés d’histoire.",
+  channel_name == "I-Télé/CNews" ~ "Fondée en 1999 sous le nom de I-Télé, la chaîne est devenue CNews en 2017. Elle est toujours active et propose des actualités en continu. Très connue, CNews est l'une des principales chaînes d'information en France.",
+  channel_name == "L'Equipe 21" ~ "Lancée en 1998 sous le nom de L'Équipe TV, puis rebaptisée L'Équipe 21 en 2012 et enfin L'Équipe en 2016, cette chaîne est spécialisée dans le sport. Elle est encore active et bien connue des amateurs de sport.",
+  channel_name == "LCI" ~ "Fondée en 1994, LCI est une chaîne d’information en continu qui est toujours active. Elle est bien connue pour sa couverture de l'actualité nationale et internationale.",
+  channel_name == "LCP/Public Sénat" ~ "Créée en 2000, LCP (La Chaîne Parlementaire) et Public Sénat diffusent des débats parlementaires et des émissions politiques. Les deux chaînes sont toujours actives et connues pour leur contenu politique et législatif.",
+  channel_name == "La chaîne Météo" ~ "Fondée en 1995, La Chaîne Météo est une chaîne dédiée aux prévisions météorologiques et aux phénomènes climatiques. Toujours active, elle est bien connue des passionnés de météo.",
+  channel_name == "M6" ~ "Lancée en 1987, M6 est une chaîne privée généraliste très populaire. Toujours active, elle propose une large variété de programmes : séries, télé-réalité, films, et divertissements. Très connue en France.",
+  channel_name == "Monte Carlo TMC" ~ "Créée en 1954, TMC (Télé Monte-Carlo) est une chaîne de télévision généraliste monégasque encore active. Très connue, elle diffuse un contenu varié incluant des films, des séries et des divertissements.",
+  channel_name == "NRJ 12" ~ "Lancée en 2005, NRJ 12 est une chaîne privée spécialisée dans la diffusion de séries, télé-réalité, et films pour un public jeune. Toujours active, elle est assez connue en France.",
+  channel_name == "Paris Première" ~ "Fondée en 1986, Paris Première est une chaîne spécialisée dans la culture, les spectacles et le divertissement. Toujours active, elle est surtout connue dans le milieu culturel et pour son ton décalé.",
+  channel_name == "Planète+" ~ "Créée en 1988, Planète+ est une chaîne spécialisée dans les documentaires sur divers sujets, notamment la nature, la science, et l’histoire. Toujours active, elle est bien connue des amateurs de documentaires.",
+  channel_name == "TF1" ~ "Créée en 1935, TF1 est la première chaîne de télévision privée française. Toujours active, elle est très connue et propose des programmes généralistes, notamment des films, des séries, des actualités et des émissions de divertissement.",
+  channel_name == "TV Breizh" ~ "Lancée en 2000, TV Breizh est une chaîne de télévision privée qui diffuse principalement des séries et des films policiers. Toujours active, elle est assez connue en France pour ses rediffusions.",
+  channel_name == "TV5 Monde" ~ "Créée en 1984, TV5 Monde est une chaîne internationale francophone diffusant des programmes culturels, des informations et des films. Toujours active, elle est très connue à l’international.",
+  channel_name == "Toute l'Histoire" ~ "Fondée en 1996, Toute l’Histoire est une chaîne thématique toujours active, spécialisée dans les documentaires historiques. Elle est connue des passionnés d’histoire.",
+  channel_name == "Téva" ~ "Créée en 1996, Téva est une chaîne spécialisée dans la diffusion de programmes pour les femmes, incluant des séries, des films et des émissions de style de vie. Toujours active, elle est assez connue dans son public cible.",
+  channel_name == "Voyage" ~ "Fondée en 1996, Voyage est une chaîne thématique dédiée aux documentaires sur les voyages et les aventures à travers le monde. Elle est encore active et appréciée des amateurs de découvertes.",
+  channel_name == "W9" ~ "Lancée en 2005, W9 est une chaîne privée généraliste, appartenant au groupe M6. Toujours active, elle propose des séries, des films, des concerts et de la télé-réalité. W9 est bien connue en France, notamment auprès d'un public jeune.",
+))
+```
+
+Taux d'expression des femmes {data-orientation=columns}
+=======================================
+
+{.column data-width=20}
+-----------------------------------------------------------------------
+
+
+```{r}
+selectInput("media_var", 
+            label = "Choisissez un type de média",
+            choices = unique(stats$media_type),
+            selected = "Radio")
+```
+
+```{r}
+media_data <- reactive({
+  subset(stats, media_type == input$media_var)
+})
+```
+
+###
+
+```{r}
+renderUI({
+  HTML(paste("<i> Les données concernant le taux d'expression des femmes à la",input$media_var,"dans cette analyse sont consultables sur <a href='https://www.data.gouv.fr' target='_blank'>www.data.gouv.fr</a>"))
+  })
+
+```
+
+###
+
+```{r}
+renderValueBox({
+    valueBox(
+      media_data() %>% summarise(n_chaines = n_distinct(channel_name)),
+      paste("Nombre de chaînes analysées")
+    )
+  })
+```
+
+###
+
+```{r}
+renderValueBox({
+  avg_channels_per_category <- media_data() %>%
+    group_by(category) %>%
+    summarise(n_chaines = n_distinct(channel_name)) %>%
+    summarise(avg_chaines = mean(n_chaines))
+  
+  valueBox(
+    value = round(avg_channels_per_category$avg_chaines),
+    paste("Nombre moyen de chaînes par catégorie")
+  )
+})
+```
+
+###
+
+```{r}
+renderValueBox({
+    valueBox(
+      media_data() %>% summarise(n_jours = n_distinct(date)),
+      paste("Nombre de jours analysés")
+    )
+  })
+```
+
+###
+
+```{r}
+renderValueBox({
+  total <- nrow(media_data())
+  total_days <- nrow(stats)
+  proportion <- (total / total_days) * 100
+  
+    valueBox(
+      paste0(round(proportion, 2), "%"),
+      paste("Part des données sur la",input$media_var)
+    )
+  })
+```
+
+
+{.column data-width=80}
+---------------------------------------------------------------------
+
+###
+
+```{r}
+renderPlotly({
+  data_evolution <- media_data() %>%
+  group_by(year) %>%
+  summarise(total_female = sum(female_duration, na.rm = TRUE),
+            total_male = sum(male_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_duration = total_female + total_male + total_music,
+         women_expression_rate = (total_female / total_duration) * 100)
+
+p <- ggplot(data_evolution, aes(x = year, y = women_expression_rate)) +
+  geom_line(linewidth = 1, color = high) +
+  labs(x = "Année", 
+       y = "Taux d'expression des femmes (%)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 12), 
+        axis.title = element_text(size = 10)) 
+
+ggplotly(p) %>%
+    layout(
+       title = list(text = paste("Évolution du taux d'expression des femmes au cours des années à la",input$media_var),
+                 font = list(size = 14)),
+      hoverlabel = list(bgcolor = "white", font = list(size = 12)), 
+      hovermode = "closest")
+})
+```
+
+###
+
+```{r, fig.width=10}
+renderPlot({
+  data_category <- media_data() %>%
+  group_by(category) %>%
+  summarise(total_female = sum(female_duration, na.rm = TRUE),
+            total_male = sum(male_duration, na.rm = TRUE),
+            total_other = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_duration = total_female + total_male + total_other,
+         women_expression_rate = (total_female / total_duration) * 100,
+         men_expression_rate = (total_male / total_duration) * 100,
+         other_expression_rate = (total_other / total_duration) * 100) %>%
+  select(category, women_expression_rate, men_expression_rate, other_expression_rate)
+  
+  data_category_long <- data_category %>%
+  pivot_longer(cols = c(women_expression_rate, men_expression_rate, other_expression_rate),
+               names_to = "expression_type",
+               values_to = "expression_rate") %>%
+  mutate(expression_type = recode(expression_type,
+                                  "women_expression_rate" = "Femmes",
+                                  "men_expression_rate" = "Hommes",
+                                  "other_expression_rate" = "Autres"))
+  ggplot(data_category_long, aes(x = expression_type, y = expression_rate, fill = expression_type)) +
+    geom_bar(stat = "identity", position = "dodge", color = "white", width = 0.5) +
+    facet_wrap(~ category, nrow = 1) +
+    scale_fill_manual(values = c("Femmes" = "darkred", "Hommes" = high, "Autres" = bleu3)) +
+    labs(x = "", y = "Taux d'expression (%)",
+         title = paste("Taux d'expression des femmes, hommes et autres à la", input$media_var, "selon la catégorie"),
+         fill = "Type d'expression") +
+    theme_light() +
+    theme(plot.title = element_text(size = 12),
+          axis.title = element_text(size = 10),
+          legend.position = "none")
+})
+```
+
+
+Comparaison au taux d'expression des hommes
+=======================================
+
+{.column data-width=20}
+-----------------------------------------------------------------------
+
+```{r}
+selectInput("media_var", 
+            label = "Choisissez un type de média",
+            choices = unique(stats$media_type),
+            selected = "Radio")
+```
+
+```{r}
+media_data <- reactive({
+  subset(stats, media_type == input$media_var)
+})
+```
+
+###
+
+```{r}
+renderUI({
+  total <- nrow(media_data())
+  total_rows <- nrow(stats)
+  proportion <- total / total_rows * 100
+  HTML(paste("Les observations sur les temps de parole à la","<strong>", input$media_var,"</strong>", 
+               "représentent",
+               "<strong>", round(proportion,1),"</strong> % des données. L'étude commence en","<strong>", 
+             min(media_data()$year),"</strong> et se termine en <strong>", max(media_data()$year),
+          "</strong>."))
+  })
+
+```
+
+### Taux d'expression moyen des femmes
+
+```{r}
+renderGauge({
+  
+  data_summary <- media_data() %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = total_female / total_time * 100,
+         male_proportion = total_male / total_time * 100)
+  
+  mean_rate <- mean(data_summary$female_proportion)
+  
+  gauge(mean_rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(50, 100), warning = c(30, 49.9), danger = c(0, 29.9),
+  colors = c(high,bleu2,bleu1)))
+})
+
+```
+
+### Taux d'expression moyen des hommes
+
+```{r}
+renderGauge({
+  
+  data_summary <- media_data() %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = total_female / total_time * 100,
+         male_proportion = total_male / total_time * 100)
+  
+  mean_rate <- mean(data_summary$male_proportion)
+  
+  gauge(mean_rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(50, 100), warning = c(30, 49.9), danger = c(0, 29.9),
+  colors = c(high,bleu2,bleu1)))
+})
+
+```
+
+### Taux moyen de musique
+
+```{r}
+renderGauge({
+  
+  data_summary <- media_data() %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = total_female / total_time * 100,
+         male_proportion = total_male / total_time * 100,
+         music_proportion = total_music / total_time * 100)
+  
+  mean_rate <- mean(data_summary$music_proportion)
+  
+  gauge(mean_rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(50, 100), warning = c(30, 49.9), danger = c(0, 29.9),
+  colors = c(high,bleu2,bleu1)))
+})
+
+```
+
+
+
+{.column data-width=40}
+-----------------------------------------------------------------------
+
+
+
+
+###
+
+```{r, fig.width=10, fig.height=5}
+renderPlot({
+  
+  data_summary <- media_data() %>%
+  group_by(hour) %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = total_female / total_time * 100,
+         male_proportion = total_male / total_time * 100)
+  
+ggplot(data_summary, aes(y = female_proportion, x = hour)) +
+  geom_point(size = 2, color = "darkred") +
+  labs(x = "Heure de début de diffusion", y = "Proportion du temps de parole des femmes (%)", 
+         title = paste("Taux d'expression des femmes en fonction de l'heure : ", input$media_var)) +
+  geom_line(size = 0.5, color = "darkred") +
+  theme_minimal() +
+  theme(
+      plot.title = element_text(size = 10), 
+      axis.title = element_text(size = 10)
+    )
+})
+```
+
+###
+
+```{r, fig.width=10, fig.height=5}
+renderPlot({
+  
+  data_summary <- media_data() %>%
+  group_by(hour) %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = total_female / total_time * 100,
+         male_proportion = total_male / total_time * 100)
+  
+ggplot(data_summary, aes(y = male_proportion, x = hour)) +
+  geom_point(size = 2, color = high) +
+  labs(x = "Heure de début de diffusion", y = "Proportion du temps de parole des hommes (%)", 
+         title = paste("Taux d'expression des hommes en fonction de l'heure : ", input$media_var)) +
+  geom_line(size = 0.5, color = high) +
+  theme_minimal() +
+  theme(
+      plot.title = element_text(size = 10),  # Taille du titre
+      axis.title = element_text(size = 10)
+    )
+})
+```
+
+###
+
+
+```{r, fig.width=10, fig.height=5}
+renderPlot({
+  
+  data_summary <- media_data() %>%
+  group_by(hour) %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = total_female / total_time * 100,
+         male_proportion = total_male / total_time * 100,
+         music_proportion = total_music / total_time * 100)
+  
+ggplot(data_summary, aes(y = music_proportion, x = hour)) +
+  geom_point(size = 2, color = bleu3) +
+  labs(x = "Heure de début de diffusion", y = "Proportion du temps de musique (%)", 
+         title = paste("Taux de musique en fonction de l'heure : ", input$media_var)) +
+  geom_line(size = 0.5, color = bleu3) +
+  theme_minimal() +
+  theme(
+      plot.title = element_text(size = 10),  # Taille du titre
+      axis.title = element_text(size = 10)
+    )
+})
+```
+
+
+{.column data-width=40}
+-----------------------------------------------------------------------
+
+
+
+###
+
+```{r, fig.width=10}
+renderPlot({
+  data_weekday <- media_data() %>%
+  group_by(week_day) %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = (total_female / total_time) * 100,
+         male_proportion = (total_male / total_time) * 100)
+
+data_weekday_long <- data_weekday %>%
+  tidyr::pivot_longer(cols = c(female_proportion, male_proportion),
+                      names_to = "genre",
+                      values_to = "proportion") %>%
+  mutate(genre = recode(genre, "female_proportion" = "Femme", "male_proportion" = "Homme"))
+
+ ggplot(data_weekday_long %>% filter(genre == "Femme"), aes(x = week_day, y = genre, fill = proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low =  "#fff0f0", high = "darkred") + 
+  labs(x = "", y = "", 
+       title = "Taux d'expression des femmes selon le jour") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))
+
+})
+```
+
+###
+
+```{r, fig.width=10}
+renderPlot({
+  data_weekday <- media_data() %>%
+  group_by(week_day) %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = (total_female / total_time) * 100,
+         male_proportion = (total_male / total_time) * 100)
+
+data_weekday_long <- data_weekday %>%
+  tidyr::pivot_longer(cols = c(female_proportion, male_proportion),
+                      names_to = "genre",
+                      values_to = "proportion") %>%
+  mutate(genre = recode(genre, "female_proportion" = "Femme", "male_proportion" = "Homme"))
+
+ggplot(data_weekday_long %>% filter(genre == "Homme"), aes(x = week_day, y = genre, fill = proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low ="#f7f9fc", high = high) +
+  labs(x = "", y = "", 
+       title = "Taux d'expression des hommes selon le jour") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))
+})
+```
+
+###
+
+```{r, fig.width=10}
+renderPlot({
+  data_weekday <- media_data() %>%
+  group_by(week_day) %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE),
+            total_music = sum(music_duration, na.rm = TRUE)) %>%
+  mutate(total_time = total_male + total_female + total_music,
+         female_proportion = (total_female / total_time) * 100,
+         male_proportion = (total_male / total_time) * 100,
+         music_proportion = (total_music / total_time) * 100)
+
+data_weekday_long <- data_weekday %>%
+  tidyr::pivot_longer(cols = c(female_proportion, music_proportion),
+                      names_to = "genre",
+                      values_to = "proportion") %>%
+  mutate(genre = recode(genre, "female_proportion" = "Femme", "male_proportion" = "Homme","music_proportion" = "Musique"))
+
+ ggplot(data_weekday_long %>% filter(genre == "Musique"), aes(x = week_day, y = genre, fill = proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low ="#f7f9fc", high = bleu3) + 
+  labs(x = "", y = "", 
+       title = "Taux de musique selon le jour") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 10))
+
+})
+```
+
+{.column data-width=60}
+-----------------------------------------------------------------------
+
+###
+
+```{r, fig.width=10}
+
+renderPlotly({
+  data_summary <- media_data() %>%
+  group_by(channel_name) %>%
+  summarise(total_male = sum(male_duration, na.rm = TRUE),
+            total_female = sum(female_duration, na.rm = TRUE)) %>%
+  mutate(female_proportion = total_female / (total_female + total_male) * 100,
+         male_proportion = total_male / (total_female + total_male) * 100)
+
+data_long <- data_summary %>%
+  tidyr::pivot_longer(cols = c(female_proportion, male_proportion),
+                      names_to = "genre",
+                      values_to = "proportion") %>%
+  mutate(genre = recode(genre, "female_proportion" = "Femme", "male_proportion" = "Homme"))
+
+data_long <- data_long %>%
+  group_by(channel_name) %>%
+  mutate(max = max(proportion)) %>%
+  ungroup()
+
+p <- ggplot(data_long, aes(x = reorder(channel_name, max), y = proportion, fill = genre)) +
+  geom_bar(stat = "identity", color = "white") +
+  labs(x = " ", y = "Proportion (%)", fill = "Genre", 
+       title = " ") +
+  scale_fill_manual(values = c("Femme" = "darkred", "Homme" = high)) +
+  theme_minimal() +
+  coord_flip()
+
+ggplotly(p) %>%
+    layout(
+       title = list(text = paste("Taux d'expression des hommes et des femmes par chaîne", input$media_type),
+                 font = list(size = 11)),
+      hoverlabel = list(bgcolor = "white", font = list(size = 11)), 
+      hovermode = "closest",
+      showlegend = TRUE
+    )
+})
+
+```
+
+
+Chaînes radio 
+=======================================
+
+{.column data-width=20}
+-----------------------------------------------------------------------
+
+```{r}
+selectInput("radio_var", 
+            label = "Choisissez une chaîne de radio",
+            choices = unique(moy_f[moy_f$media_type == "radio", "channel_name"]),
+            selected = "Chérie FM")
+```
+
+```{r}
+radio_data <- reactive({
+  subset(moy_f, media_type == "radio" & channel_name == input$radio_var)
+})
+```
+
+
+### Description
+
+
+```{r}
+renderText({ 
+    paste(unique(radio_data()$description))
+  })
+```
+
+### Informations
+
+```{r}
+renderUI({
+  
+    start_year <- min(radio_data()$year, na.rm = TRUE)  
+    end_year <- max(radio_data()$year, na.rm = TRUE)
+    
+    nb_years_observed <- end_year - start_year + 1
+    
+    HTML(paste("Les observations concernant la chaîne radio","<strong>", input$radio_var,"</strong>",
+               "débutent en","<strong>", start_year,"</strong>","jusqu'en","<strong>",end_year,"</strong>",
+          ", le taux d'expression et le débit de parole des femmes sur la chaîne (en pourcentage) ont donc été étudié pendant","<strong>", nb_years_observed,"</strong>","ans (les données utilisées pour cette analyse sont consultables sur <a href='https://www.data.gouv.fr' target='_blank'>www.data.gouv.fr</a>)."))
+  })
+```
+
+{.column data-width=20}
+-----------------------------------------------------------------------
+
+###
+
+```{r}
+renderValueBox({
+    valueBox(
+      round(sum(radio_data()$nb_hours_analyzed),2),
+      paste("Nombre total d'heures analysées"),
+      color = "darkred"
+    )
+  })
+```
+
+###
+
+```{r}
+  
+renderValueBox({
+  min_index <- which.min(radio_data()$women_expression_rate)
+  
+  min_rate <- radio_data()$women_expression_rate[min_index]
+  min_channel <- radio_data()$channel_name[min_index]
+  min_year <- radio_data()$year[min_index]
+    valueBox(round(min_rate,2), caption = paste("Taux minimal observé en", min_year), 
+             icon="fa-thumbs-down",color = "darkred")
+  })
+```
+
+###
+
+```{r}
+renderValueBox({
+   max_index <- which.max(radio_data()$women_expression_rate)
+  
+  max_rate <- radio_data()$women_expression_rate[max_index]
+  max_year <- radio_data()$year[max_index]
+  max_channel <- radio_data()$channel_name[max_index]
+    valueBox(round(max_rate,2), caption = paste("Taux maximal observé en", max_year), 
+             icon="fa-thumbs-up",color = "darkred")
+  })
+
+```
+
+
+
+### Taux d'expression moyen des femmes
+
+```{r}
+renderGauge({
+  mean_index <- mean(radio_data()$women_expression_rate)
+  
+  mean_rate <- radio_data()$women_expression_rate[mean_index]
+  gauge(mean_index, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(50, 100), warning = c(30, 49.9), danger = c(0, 29.9),
+  colors = c("darkred","#c78585","#ffcec9")))
+})
+
+```
+
+### Débit de parole moyen des femmes
+
+```{r}
+renderGauge({
+  mean_index <- mean(radio_data()$speech_rate)
+  
+  mean_rate <- radio_data()$speech_rate[mean_index]
+  gauge(mean_index, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(50, 100), warning = c(29.91, 49.9), danger = c(0, 29.9),
+  colors = c("darkred","#c78585","#ffcec9")))
+})
+```
+
+
+{.column data-width=60}
+-----------------------------------------------------------------------
+
+### Taux d'expression des femmes en fonction des années
+
+```{r, fig.width=10}
+renderPlot({
+  ggplot(data = radio_data(), aes(y = women_expression_rate, x = year)) +
+  geom_point(stat = "identity", size = 3, color = high) +
+  geom_smooth(method = "glm",
+              se = F,
+              colour = "darkred",
+              size = 0.3) +
+  labs(x = "Années", y = "Taux d'expression (%)") +
+  theme_minimal()
+})
+```
+
+### Débit de parole des femmes en fonction des années
+
+```{r}
+renderPlot({
+  ggplot(data = radio_data(), aes(y = speech_rate, x = year)) +
+  geom_point(stat = "identity", size = 3, color = high) +
+  geom_smooth(method = "glm",
+              se = F,
+              colour = "darkred",
+              size = 0.3) +
+  labs(x = "Années", y = "Débit de parole (%)") +
+  theme_minimal()
+})
+```
+
+Chaînes télévision
+======================================
+
+{.column data-width=20}
+-----------------------------------------------------------------------
+
+```{r}
+selectInput("tv_var", 
+            label = "Choisissez une chaîne de télévision",
+            choices = unique(moy_f[moy_f$media_type == "tv", "channel_name"]),
+            selected = "TF1")
+```
+
+```{r}
+tv_data <- reactive({
+  subset(moy_f, media_type == "tv" & channel_name == input$tv_var)
+})
+```
+
+### Description
+
+```{r}
+renderText({ 
+    paste(unique(tv_data()$description))
+  })
+```
+
+### Informations
+
+```{r}
+renderUI({
+  
+    start_year <- min(tv_data()$year, na.rm = TRUE)  
+    end_year <- max(tv_data()$year, na.rm = TRUE)
+    
+    nb_years_observed <- end_year - start_year + 1
+    
+    HTML(paste("Les observations concernant la chaîne télévision","<strong>", input$tv_var,"</strong>", "débutent en",
+               "<strong>",start_year,"</strong>", "jusqu'en","<strong>", end_year,"</strong>",
+          ", le taux d'expression et le débit de parole des femmes sur la chaîne (en pourcentage) ont donc été étudié pendant","<strong>", nb_years_observed,"</strong>","ans (les données utilisées pour cette analyse sont consultables sur <a href='https://www.data.gouv.fr' target='_blank'>www.data.gouv.fr</a>)."))
+  })
+```
+
+
+{.column data-width=20}
+-----------------------------------------------------------------------
+
+###
+
+
+```{r}
+renderValueBox({
+    valueBox(
+      round(sum(tv_data()$nb_hours_analyzed),2),
+      paste("Nombre total d'heures analysées "),
+      color = "darkred"
+    )
+  })
+```
+
+###
+
+```{r}
+  
+renderValueBox({
+  min_index <- which.min(tv_data()$women_expression_rate)
+  
+  min_rate <- tv_data()$women_expression_rate[min_index]
+  min_channel <- tv_data()$channel_name[min_index]
+  min_year <- tv_data()$year[min_index]
+    valueBox(round(min_rate,2), caption = paste("Taux minimal observé en", min_year), 
+             icon="fa-thumbs-down", color = "darkred")
+  })
+```
+
+
+
+###
+
+```{r}
+renderValueBox({
+   max_index <- which.max(tv_data()$women_expression_rate)
+  
+  max_rate <- tv_data()$women_expression_rate[max_index]
+  max_channel <- tv_data()$channel_name[max_index]
+  max_year <- tv_data()$year[max_index]
+    valueBox(round(max_rate,2), caption = paste("Taux maximal observé en", max_year), 
+             icon="fa-thumbs-up",color = "darkred")
+  })
+```
+
+### Taux d'expression moyen des femmes
+
+```{r}
+renderGauge({
+  mean_index <- mean(tv_data()$women_expression_rate)
+  
+  mean_rate <- tv_data()$women_expression_rate[mean_index]
+  gauge(mean_index, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(50, 100), warning = c(30, 49.9), danger = c(0, 29.9),
+  colors = c("darkred","#c78585","#ffcec9")))
+})
+
+```
+
+### Débit de parole moyen des femmes
+
+```{r}
+renderGauge({
+  mean_index <- mean(tv_data()$speech_rate)
+  
+  mean_rate <- tv_data()$speech_rate[mean_index]
+  gauge(mean_index, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(50, 100), warning = c(30, 49.9), danger = c(0, 29.99),
+  colors = c("darkred","#c78585","#ffcec9")))
+})
+```
+
+{.column data-width=60}
+-----------------------------------------------------------------------
+
+### Taux d'expression des femmes en fonction des années
+
+```{r, fig.width=10}
+renderPlot({
+  ggplot(data = tv_data(), aes(y = women_expression_rate, x = year)) +
+  geom_point(stat = "identity", size = 3, color = high) +
+  geom_smooth(method = "glm",
+              se = F,
+              colour = "darkred",
+              size = 0.3) +
+  labs(x = "Années", y = "Taux d'expression (%)") +
+  theme_minimal()
+})
+```
+
+### Débit de parole des femmes en fonction des années
+
+```{r}
+renderPlot({
+  ggplot(data = tv_data(), aes(y = speech_rate, x = year)) +
+  geom_point(stat = "identity", size = 3, color = high) +
+  geom_smooth(method = "glm",
+              se = F,
+              colour = "darkred",
+              size = 0.3) +
+  labs(x = "Années", y = "Débit de parole (%)") +
+  theme_minimal()
+})
+```
+
+
