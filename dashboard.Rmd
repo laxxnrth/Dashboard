@@ -26,11 +26,11 @@ bleu2 <- "#B3D1E6"
 bleu3 <- "#A9C9FF"
 bleu1 <- "#CCDFF1"
 
-genre_prog <- read.csv("C:/Users/laxmi/Desktop/DEE/ina-csa-parole-femmes-genreprogramme.csv")
+genre_prog <- read.csv("ina-csa-parole-femmes-genreprogramme.csv")
 
-chaine <- read.csv("C:/Users/laxmi/Desktop/DEE/ina-csa-parole-femmes-chaines.csv")
+chaine <- read.csv("ina-csa-parole-femmes-chaines.csv")
 
-stats <- read.csv("C:/Users/laxmi/Desktop/DEE/20190308-stats.csv")
+stats <- read.csv("20190308-stats.csv")
 
 stats <- stats %>% mutate(media_type = case_when(media_type == "radio" ~ "Radio",
                                                  media_type == "tv" ~ "Télévision"))
